@@ -70,7 +70,17 @@ module RailsAdmin
               value = instance_variable_get("@#{option_name}_registered")
               case value
               when Proc
-                value = with_recurring(option_name, value, default)
+                # Track recursive invocation with an instance variable. This prevents run-away recursion
+                # and allows configurations such as
+                # label { "#{label}".upcase }
+                # This will use the default definition when called recursively.
+                if RequestStore.store["rails_admin/#{option_name}_recurring"]
+                  value = instance_eval(&default)
+                else
+                  RequestStore.store["rails_admin/#{option_name}_recurring"] = true
+                  value = instance_eval(&value)
+                  RequestStore.store["rails_admin/#{option_name}_recurring"] = false
+                end
               when nil
                 value = instance_eval(&default)
               end
